@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Stop-Process -Id 36640 -Force\")",
+      "Bash(.venv/Scripts/python.exe huaweicloud_services_server/mcp_server_rds/src/mcp_server_rds/run.py)",
+      "Bash(curl -s http://localhost:8907/mcp -H \"Content-Type: application/json\" -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}')",
+      "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}')",
+      "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}')",
+      "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\('HUAWEI_ACCESS_KEY', 'User'\\); [Environment]::GetEnvironmentVariable\\('HUAWEI_SECRET_KEY', 'User'\\)\")",
+      "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\('HUAWEI_ACCESS_KEY', 'Machine'\\); [Environment]::GetEnvironmentVariable\\('HUAWEI_SECRET_KEY', 'Machine'\\)\")",
+      "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -H \"X-Access-Key: fake_ak_test\" -H \"X-Secret-Key: fake_sk_test\" -d '{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"fake_project_id\"}}}')",
+      "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"test\",\"access_key\":\"args_only_ak\",\"secret_key\":\"args_only_sk\"}}}')"
+    ]
+  }
+}

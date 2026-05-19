@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "huaweicloud-rds-mcp-server"
+version = "0.1.0"
+description = "华为云 RDS MCP Server"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.11.18",
+    "fastmcp>=2.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.3",
+    "huaweicloudsdkcore>=3.1.150"
+]
+
+[tool.setuptools]
+packages = [
+    "assets",
+    "assets.utils",
+    "huaweicloud_services_server",
+    "huaweicloud_services_server.mcp_server_rds.src.mcp_server_rds",
+]
+
+[tool.setuptools.package-data]
+"huaweicloud_services_server.mcp_server_rds.src.mcp_server_rds" = ["config/*.yaml", "config/*.json"]
+
+[project.scripts]
+mcp-server-rds = "huaweicloud_services_server.mcp_server_rds.src.mcp_server_rds.run:main"

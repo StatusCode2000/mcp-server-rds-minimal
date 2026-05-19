@@ -1,0 +1,2 @@
+assets
+huaweicloud_services_server

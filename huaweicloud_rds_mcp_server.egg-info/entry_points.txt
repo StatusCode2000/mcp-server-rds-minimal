@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-server-rds = huaweicloud_services_server.mcp_server_rds.src.mcp_server_rds.run:main
