@@ -92,9 +92,18 @@ class MCPServer:
 
             # 循环加载每个服务的 OpenAPI
             for service_code in self.config.service_codes:
+                # 默认路径：openapi/{service_code}.json（统一目录）
                 openapi_path = (
-                    Path(self.config_path.parent) / f"{service_code}.json"
+                    Path(self.config_path.parent) / "openapi" / f"{service_code}.json"
                 )
+                # 兜底：同目录下的 {service_code}.json
+                if not openapi_path.exists():
+                    openapi_path = (
+                        Path(self.config_path.parent) / f"{service_code}.json"
+                    )
+
+                logger.info(f"加载服务 {service_code}，OpenAPI路径: {openapi_path}")
+
                 openapi_dict = load_openapi(openapi_path)
                 if not openapi_dict:
                     raise ValueError(

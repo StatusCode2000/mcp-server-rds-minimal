@@ -1,0 +1,13 @@
+# MCP Gateway 统一配置
+# 支持多个华为云服务的 MCP 工具
+
+service_codes: ["rds", "das"]
+transport: http  # 支持 stdio, http 和 sse
+port: 8907  # 统一入口端口
+
+# OpenAPI 文件位于 config/openapi/ 目录下：
+# - rds.json
+# - das.json
+# 后续添加新服务只需：
+# 1. 添加服务名到 service_codes
+# 2. 将对应的 OpenAPI json 文件放入 openapi/ 目录
