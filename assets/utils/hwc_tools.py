@@ -263,8 +263,15 @@ def load_config(config_path: Union[str, Path]) -> MCPConfig:
 
     # 创建主配置对象
     try:
+        # 支持多服务配置 service_codes 或单服务配置 service_code（兼容）
+        service_codes = config_dict.get("service_codes", [])
+        if not service_codes:
+            single_code = config_dict.get("service_code", "")
+            if single_code:
+                service_codes = [single_code]
+
         cfg = MCPConfig(
-            service_code=config_dict.get("service_code", ""),
+            service_codes=service_codes,
             transport=config_dict.get("transport", ""),
             port=config_dict.get("port", 8888),
             ak=config_dict.get("ak", ""),

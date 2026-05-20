@@ -58,9 +58,13 @@ class MCPServer:
 
         self.config: Optional[MCPConfig] = None
         self.server: Optional[Server] = None
-        self.tools: list[Tool] = []
+        self.tools: list[Tool] = []  # 带前缀的工具（返回给客户端）
         self.initialized: bool = False
-        self.openapi_dict: dict[str, Any] = {}
+
+        # 多服务存储
+        self.openapi_dicts: dict[str, Any] = {}  # service_code → openapi
+        self.original_tools: dict[str, list[Tool]] = {}  # service_code → 原始工具列表
+        self.tool_service_map: dict[str, str] = {}  # prefixed_name → service_code
 
         self.active_clients: dict[str, Any] = {}
         self._clients_lock = asyncio.Lock()
@@ -79,24 +83,47 @@ class MCPServer:
             if not self.config:
                 raise ValueError("无法加载服务器配置")
 
-            self.server = Server(f"hwc-mcp-server-{self.config.service_code.lower()}")
+            # 服务器名称（取前3个服务名拼接）
+            services_name = "-".join(self.config.service_codes[:3])
+            self.server = Server(f"hwc-mcp-server-{services_name}")
             logger.info(
-                f"初始化MCP服务器实例： hwc-mcp-server-{self.config.service_code.lower()}"
+                f"初始化MCP服务器实例： hwc-mcp-server-{services_name}"
             )
 
-            # 加载OpenAPI规范
-            openapi_path = (
-                Path(self.config_path.parent) / f"{self.config.service_code}.json"
-            )
-            self.openapi_dict = load_openapi(openapi_path)
-            if not self.openapi_dict:
-                raise ValueError(
-                    f"加载OpenAPI文档失败，请检查{openapi_path}文档内容是否有误"
+            # 循环加载每个服务的 OpenAPI
+            for service_code in self.config.service_codes:
+                openapi_path = (
+                    Path(self.config_path.parent) / f"{service_code}.json"
                 )
+                openapi_dict = load_openapi(openapi_path)
+                if not openapi_dict:
+                    raise ValueError(
+                        f"加载OpenAPI文档失败，请检查{openapi_path}文档内容是否有误"
+                    )
 
-            # 转换为MCP工具
-            self.tools = OpenAPIToToolsConverter(self.openapi_dict).convert()
-            logger.info(f"成功加载 {len(self.tools)} 个工具")
+                # 保存 OpenAPI
+                self.openapi_dicts[service_code] = openapi_dict
+
+                # 转换为工具（原始版本，用于 build_http_info）
+                original_tools = OpenAPIToToolsConverter(openapi_dict).convert()
+                self.original_tools[service_code] = original_tools
+
+                # 创建带前缀版本（用于返回给客户端）
+                for tool in original_tools:
+                    prefixed_name = f"{service_code}_{tool.name}"
+                    prefixed_tool = Tool(
+                        name=prefixed_name,
+                        description=f"[{service_code.upper()}] {tool.description}",
+                        inputSchema=tool.inputSchema,
+                    )
+                    self.tools.append(prefixed_tool)
+                    self.tool_service_map[prefixed_name] = service_code
+
+                logger.info(f"服务 {service_code} 加载完成，工具数: {len(original_tools)}")
+
+            logger.info(
+                f"总共加载 {len(self.tools)} 个工具，来自 {len(self.config.service_codes)} 个服务"
+            )
 
             # 注册工具处理函数
             self._register_tool_handlers()
@@ -138,12 +165,36 @@ class MCPServer:
         async def call_tool(
             name: str, arguments: dict
         ) -> list[TextContent | ImageContent | EmbeddedResource]:
+            # 根据带前缀的工具名找到服务
+            service_code = self.tool_service_map.get(name)
+            if not service_code:
+                raise ToolError({
+                    "code": "UNKNOWN_TOOL",
+                    "message": f"工具 '{name}' 不存在",
+                })
+
+            # 获取原始工具名（去掉前缀）
+            original_name = name.replace(f"{service_code}_", "")
+
+            # 从原始工具列表中找到 Tool 对象
+            original_tool = next(
+                (t for t in self.original_tools[service_code] if t.name == original_name),
+                None
+            )
+            if not original_tool:
+                raise ToolError({
+                    "code": "TOOL_NOT_FOUND",
+                    "message": f"服务 '{service_code}' 中未找到工具 '{original_name}'",
+                })
+
+            # 获取对应服务的 OpenAPI
+            openapi_dict = self.openapi_dicts[service_code]
+            x_host = openapi_dict["info"]["x-host"]
             region = arguments.get("region") or "cn-north-4"
-            x_host = self.openapi_dict["info"]["x-host"]
 
             # 从上下文变量获取 headers
             headers = _request_headers.get()
-            
+
             # 优先级：Headers > 请求参数 > 配置/环境变量
             ak = (
                 headers.get('x-access-key') or
@@ -169,8 +220,9 @@ class MCPServer:
             try:
                 arguments = filter_parameters(arguments)
 
+                # 传入原始工具，build_http_info 完全不用改
                 http_info = build_http_info(
-                    name, arguments, self.openapi_dict, self.tools
+                    original_tool.name, arguments, openapi_dict, self.original_tools[service_code]
                 )
 
                 response = client.do_http_request(**http_info)
