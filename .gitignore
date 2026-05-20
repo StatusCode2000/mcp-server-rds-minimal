@@ -1,0 +1,33 @@
+# Python 编译缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE 和工具配置
+.claude/
+.vscode/
+.idea/
+
+# 日志文件
+*.log
+logs/
+
+# 环境变量和敏感信息
+.env
+*.env.local
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+
+# 测试和覆盖率
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 打包产物
+dist/
+build/
+*.egg-info/
