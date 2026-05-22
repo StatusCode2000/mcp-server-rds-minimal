@@ -94,17 +94,19 @@ description: MCP Gateway 多服务架构总览流程图，用于串讲需求
 ```
 
 markdown
-# MCP Gateway HTTP 接口文档
+# MCP Gateway HTTP/HTTPS 接口文档
 
 ## 接口总览
 
 - **端点**：`POST /mcp/`
-- **协议**：HTTP/1.1 或 HTTP/2
+- **协议**：**HTTPS**（必须，不支持 HTTP）
 - **内容类型**：`application/json`
 - **认证方式**：自定义请求头
   - `X-Access-Key`: 用户的 AK（Access Key）
   - `X-Secret-Key`: 用户的 SK（Secret Key）
 - **消息格式**：JSON-RPC 2.0（符合 MCP 规范）
+
+> ⚠️ **安全要求**：所有请求必须通过 **HTTPS** 发送
 
 ---
 
@@ -132,8 +134,8 @@ http
 POST /mcp/ HTTP/1.1
 Host: mcp-gateway.example.com:8907
 Content-Type: application/json
-X-Access-Key: AKIAIOSFODNN7EXAMPLE
-X-Secret-Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+X-Access-Key: ***
+X-Secret-Key: ***
 
 {
   "jsonrpc": "2.0",
@@ -205,13 +207,22 @@ Content-Type: application/json
     "data": { "details": "missing field region" }
   }
 }
-认证细节
+认证与安全细节
+传输安全：所有通信必须使用 TLS 1.2 或更高版本。
+
 网关收到请求后，HeadersMiddleware 会从 X-Access-Key 和 X-Secret-Key 中提取凭证存入 contextvars。
 
-后续调用华为云 API 时，SK 仅用于在网关侧计算签名，不会通过网络发送到后端云服务。
+后续调用华为云 API 时，SK 仅用于在网关侧计算签名，不会通过网络发送到后端云服务。SK 也绝不会以明文形式返回给客户端。
 
-若客户端在 arguments 中也传递了 access_key / secret_key，网关优先级为：请求头 > 参数 > 网关配置的默认 AK/SK（通常不建议通过参数传递敏感信息）。
+若客户端在 arguments 中也传递了 access_key / secret_key，网关优先级为：请求头 > 参数 > 网关配置的默认 AK/SK（强烈不建议通过参数传递敏感信息）。
 
+
+兼容性说明
+该接口完全遵循 JSON-RPC 2.0 规范。
+
+同时兼容 MCP（Model Context Protocol）标准，因此任何支持 MCP 的客户端（如 Claude Desktop、Cursor 等）都可以直接接入此网关。
+
+网关会在内部将 tools/call 中的工具名称（如 rds_ListInstances）通过 tool_service_map 转换为真实的云服务端点和方法。
 ---
 
 ## 目录结构
