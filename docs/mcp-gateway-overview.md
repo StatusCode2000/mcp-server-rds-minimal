@@ -92,6 +92,8 @@ description: MCP Gateway 多服务架构总览流程图，用于串讲需求
 │   ...                                                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+## 顺序图
+
 
 markdown
 # MCP Gateway HTTP/HTTPS 接口文档
@@ -118,8 +120,8 @@ markdown
 POST /mcp/ HTTP/1.1
 Host: mcp-gateway.example.com:8907
 Content-Type: application/json
-X-Access-Key: AKIAIOSFODNN7EXAMPLE
-X-Secret-Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+X-Access-Key: ***
+X-Secret-Key:***
 
 {
   "jsonrpc": "2.0",
@@ -207,6 +209,7 @@ Content-Type: application/json
     "data": { "details": "missing field region" }
   }
 }
+
 认证与安全细节
 传输安全：所有通信必须使用 TLS 1.2 或更高版本。
 
@@ -224,6 +227,7 @@ Content-Type: application/json
 
 网关会在内部将 tools/call 中的工具名称（如 rds_ListInstances）通过 tool_service_map 转换为真实的云服务端点和方法。
 ---
+
 
 ## 目录结构
 
