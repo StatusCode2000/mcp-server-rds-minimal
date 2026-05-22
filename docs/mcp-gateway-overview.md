@@ -509,3 +509,193 @@ OpenAPI JSON ──► 转换 ──► MCP Tools ──► 加前缀 ──► 
    │                                      │
    │                              response ──► 封装 MCP ──► 返回客户端
 ```
+
+---
+
+## 接口设计
+
+### 1. 服务地址
+
+```
+URL:    http://localhost:8907/mcp/
+方法:    POST
+协议:    JSON-RPC 2.0
+传输:    StreamableHTTP (SSE 响应)
+```
+
+---
+
+### 2. 客户端连接配置
+
+```json
+{
+  "mcpServers": {
+    "huaweicloud": {
+      "url": "http://localhost:8907/mcp/",
+      "headers": {
+        "X-Access-Key": "UAKXXXXXXXXXXXX",
+        "X-Secret-Key": "USKXXXXXXXXXXXX"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 3. 请求格式
+
+#### tools/list - 获取工具列表
+
+```json
+POST /mcp/
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list",
+  "params": {}
+}
+```
+
+#### tools/call - 调用工具
+
+```json
+POST /mcp/
+Content-Type: application/json
+Accept: application/json, text/event-stream
+X-Access-Key: UAKXXXXXXXXXXXX
+X-Secret-Key: USKXXXXXXXXXXXX
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "rds_ListInstances",
+    "arguments": {
+      "project_id": "619d3e78f61b4be68bc5aa0b59edcf7b",
+      "region": "cn-north-4"
+    }
+  }
+}
+```
+
+---
+
+### 4. 响应格式
+
+#### tools/list 响应
+
+```
+event: message
+data: {
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "rds_ListInstances",
+        "description": "[RDS] 查询实例列表",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "project_id": {"type": "string", "in": "path", "description": "项目ID"},
+            "region": {"type": "string", "description": "区域"}
+          },
+          "required": ["project_id"]
+        }
+      },
+      {
+        "name": "das_ShowApiVersion",
+        "description": "[DAS] 查询API版本",
+        "inputSchema": {...}
+      },
+      ...
+    ]
+  }
+}
+```
+
+#### tools/call 成功响应
+
+```
+event: message
+data: {
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"instances\": [], \"total_count\": 0}"
+      }
+    ]
+  }
+}
+```
+
+#### tools/call 错误响应
+
+```
+event: message
+data: {
+  "jsonrpc": "2.0",
+  "id": 2,
+  "error": {
+    "code": "MISSING_CREDENTIALS",
+    "message": "请在请求 Headers 中提供 X-Access-Key 和 X-Secret-Key"
+  }
+}
+```
+
+---
+
+### 5. AK/SK Headers 规范
+
+| Header 名称 | 别名 | 说明 | 优先级 |
+|-------------|------|------|--------|
+| `X-Access-Key` | `Access-Key` | 华为云 AK | 最高 |
+| `X-Secret-Key` | `Secret-Key` | 华为云 SK | 最高 |
+
+AK/SK 获取优先级：
+
+```
+Headers (X-Access-Key/X-Secret-Key)     → 每请求不同，支持多用户
+    ↓ 没有时
+请求参数 (access_key/secret_key)         → 工具参数中传入
+    ↓ 没有时
+配置/环境变量 (config.ak/sk, HUAWEI_ACCESS_KEY) → 兜底，所有请求共用
+```
+
+---
+
+### 6. 错误码
+
+| 错误码 | 含义 | 触发条件 |
+|--------|------|----------|
+| `MISSING_CREDENTIALS` | 缺少 AK/SK | 所有来源都没有 AK 或 SK |
+| `UNKNOWN_TOOL` | 工具不存在 | 工具名不在 tool_service_map 中 |
+| `TOOL_NOT_FOUND` | 原始工具未找到 | 服务中无此原始工具名 |
+| `-32600` | 请求格式错误 | JSON-RPC 格式不合规 |
+| `406` | Accept 头不符合 | 缺少 `text/event-stream` Accept |
+
+---
+
+### 7. 工具命名规范
+
+```
+格式: {service_code}_{original_tool_name}
+
+示例:
+  rds_ListInstances    → RDS 服务 / ListInstances 工具
+  rds_CreateInstance   → RDS 服务 / CreateInstance 工具
+  das_ShowApiVersion   → DAS 服务 / ShowApiVersion 工具
+  das_ListFullSqlTasks → DAS 服务 / ListFullSqlTasks 工具
+
+新增服务扩展:
+  ecs_CreateServer     → ECS 服务 / CreateServer 工具
+  vpc_ListVpcs         → VPC 服务 / ListVpcs 工具
+```
