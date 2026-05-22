@@ -99,7 +99,7 @@ markdown
 ## 接口总览
 
 - **端点**：`POST /mcp/`
-- **协议**：**HTTPS**（必须，不支持 HTTP）
+- **协议**：**HTTPS**
 - **内容类型**：`application/json`
 - **认证方式**：自定义请求头
   - `X-Access-Key`: 用户的 AK（Access Key）
