@@ -93,6 +93,125 @@ description: MCP Gateway 多服务架构总览流程图，用于串讲需求
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+markdown
+# MCP Gateway HTTP 接口文档
+
+## 接口总览
+
+- **端点**：`POST /mcp/`
+- **协议**：HTTP/1.1 或 HTTP/2
+- **内容类型**：`application/json`
+- **认证方式**：自定义请求头
+  - `X-Access-Key`: 用户的 AK（Access Key）
+  - `X-Secret-Key`: 用户的 SK（Secret Key）
+- **消息格式**：JSON-RPC 2.0（符合 MCP 规范）
+
+---
+
+## 请求示例
+
+### 1. 获取工具列表 (`tools/list`)
+
+```http
+POST /mcp/ HTTP/1.1
+Host: mcp-gateway.example.com:8907
+Content-Type: application/json
+X-Access-Key: AKIAIOSFODNN7EXAMPLE
+X-Secret-Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list",
+  "params": {}
+}
+2. 调用具体工具 (tools/call)
+例如调用华为云 RDS 的 ListInstances 工具（网关自动映射为 rds_ListInstances）：
+
+http
+POST /mcp/ HTTP/1.1
+Host: mcp-gateway.example.com:8907
+Content-Type: application/json
+X-Access-Key: AKIAIOSFODNN7EXAMPLE
+X-Secret-Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "rds_ListInstances",
+    "arguments": {
+      "region": "cn-north-4",
+      "limit": 10
+    }
+  }
+}
+注意：arguments 里的参数会按照华为云 API 的要求被转换和签名。
+
+响应示例
+成功响应（工具列表）
+http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "rds_ListInstances",
+        "description": "查询 RDS 实例列表",
+        "inputSchema": { ... }
+      },
+      {
+        "name": "das_GetSlowLogs",
+        "description": "获取慢日志",
+        "inputSchema": { ... }
+      }
+    ]
+  }
+}
+成功响应（工具调用结果）
+http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"instances\":[{\"id\":\"abc123\",\"name\":\"my-rds\",\"status\":\"ACTIVE\"}],\"total\":1}"
+      }
+    ],
+    "isError": false
+  }
+}
+错误响应示例
+http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "error": {
+    "code": -32602,
+    "message": "Invalid params: region is required",
+    "data": { "details": "missing field region" }
+  }
+}
+认证细节
+网关收到请求后，HeadersMiddleware 会从 X-Access-Key 和 X-Secret-Key 中提取凭证存入 contextvars。
+
+后续调用华为云 API 时，SK 仅用于在网关侧计算签名，不会通过网络发送到后端云服务。
+
+若客户端在 arguments 中也传递了 access_key / secret_key，网关优先级为：请求头 > 参数 > 网关配置的默认 AK/SK（通常不建议通过参数传递敏感信息）。
+
 ---
 
 ## 目录结构
