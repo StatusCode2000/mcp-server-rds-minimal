@@ -10,7 +10,18 @@
       "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\('HUAWEI_ACCESS_KEY', 'User'\\); [Environment]::GetEnvironmentVariable\\('HUAWEI_SECRET_KEY', 'User'\\)\")",
       "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\('HUAWEI_ACCESS_KEY', 'Machine'\\); [Environment]::GetEnvironmentVariable\\('HUAWEI_SECRET_KEY', 'Machine'\\)\")",
       "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -H \"X-Access-Key: fake_ak_test\" -H \"X-Secret-Key: fake_sk_test\" -d '{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"fake_project_id\"}}}')",
-      "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"test\",\"access_key\":\"args_only_ak\",\"secret_key\":\"args_only_sk\"}}}')"
+      "Bash(curl -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d '{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"test\",\"access_key\":\"args_only_ak\",\"secret_key\":\"args_only_sk\"}}}')",
+      "Bash(curl -s -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}')",
+      "Bash(curl -s -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -d '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}')",
+      "Bash(curl -s -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -H \"X-Access-Key: fake_ak\" -H \"X-Secret-Key: fake_sk\" -d '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"rds_ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"test\"}}}')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(.venv/Scripts/python.exe huaweicloud_services_server/mcp_gateway/run.py)",
+      "Bash(curl -s -X POST http://localhost:8907/mcp/ -H \"Content-Type: application/json\" -H \"Accept: application/json, text/event-stream\" -H \"X-Access-Key: fake_ak\" -H \"X-Secret-Key: fake_sk\" -d '{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"rds_ListInstances\",\"arguments\":{\"region\":\"cn-north-4\",\"project_id\":\"test\"}}}')",
+      "Bash(git stash *)",
+      "Bash(git push *)",
+      "Bash(python test_list_tools.py)",
+      "Bash(git remote *)"
     ]
   }
 }

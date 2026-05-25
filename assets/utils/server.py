@@ -62,7 +62,7 @@ class MCPServer:
         self.initialized: bool = False
 
         # 多服务存储
-        self.openapi_dicts: dict[str, Any] = {}  # service_code → openapi
+        self.openapi_dicts: dict[str, Any] = {}  # service_code → openapi /存储每个服务的 OpenAPI 原始内容
         self.original_tools: dict[str, list[Tool]] = {}  # service_code → 原始工具列表
         self.tool_service_map: dict[str, str] = {}  # prefixed_name → service_code
 
@@ -185,7 +185,7 @@ class MCPServer:
             # 获取原始工具名（去掉前缀）
             original_name = name.replace(f"{service_code}_", "")
 
-            # 从原始工具列表中找到 Tool 对象
+            # 从原始工具列表中找到 Tool 对象  # → Tool(name="ListInstances", ...)
             original_tool = next(
                 (t for t in self.original_tools[service_code] if t.name == original_name),
                 None
@@ -196,7 +196,7 @@ class MCPServer:
                     "message": f"服务 '{service_code}' 中未找到工具 '{original_name}'",
                 })
 
-            # 获取对应服务的 OpenAPI
+            # 获取对应服务的 OpenAPI  # → rds.json 的完整内容
             openapi_dict = self.openapi_dicts[service_code]
             x_host = openapi_dict["info"]["x-host"]
             region = arguments.get("region") or "cn-north-4"
@@ -257,13 +257,14 @@ class MCPServer:
     async def run_server(self):
         self._ensure_initialized()
         if self.config.transport == TRANSPORT_SSE:
-            await self.run_sse_server()
+            # await self.run_sse_server()
+            logger.warning("SSE传输模式已被禁用，请切换到http或stdio模式")
         elif self.config.transport == TRANSPORT_HTTP:
             await self.run_http_server()
         else:
             await self.run_stdio_server()
 
-    async def run_sse_server(self):
+    # async def run_sse_server(self):
         logger.info("启动SSE服务器")
         # 配置SSE服务器
         sse = SseServerTransport("/messages/")
