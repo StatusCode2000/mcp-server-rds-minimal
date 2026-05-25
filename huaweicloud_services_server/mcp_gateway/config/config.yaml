@@ -5,9 +5,19 @@ service_codes: ["rds", "das"]
 transport: http  # 支持 stdio, http 和 sse
 port: 8907  # 统一入口端口
 
+# 工具过滤配置已移至独立文件
+# 配置文件位于 config/filters/ 目录下：
+# - filters/rds.yaml  → RDS 工具过滤
+# - filters/das.yaml  → DAS 工具过滤
+#
+# 每个服务的过滤规则在独立文件中配置，便于维护和扩展
+# 如果某个服务没有对应的 filter 文件，则使用全部工具
+
 # OpenAPI 文件位于 config/openapi/ 目录下：
 # - rds.json
 # - das.json
+#
 # 后续添加新服务只需：
 # 1. 添加服务名到 service_codes
 # 2. 将对应的 OpenAPI json 文件放入 openapi/ 目录
+# 3. (可选) 在 filters/ 目录创建过滤配置文件

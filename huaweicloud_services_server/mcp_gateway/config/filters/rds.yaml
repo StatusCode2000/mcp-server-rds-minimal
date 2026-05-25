@@ -1,0 +1,11 @@
+# RDS 服务工具过滤配置
+# mode: whitelist = 白名单（只保留指定工具）
+# mode: blacklist = 黑名单（排除指定工具）
+# tools 里写原始工具名（不带 rds_ 前缀）
+
+mode: whitelist
+tools:
+  - ListInstances              # 查询实例列表
+  - CreateInstance             # 创建实例
+  - DeleteInstance             # 删除实例
+  - ShowInstanceConfiguration  # 查询实例配置

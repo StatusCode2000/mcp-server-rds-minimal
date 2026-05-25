@@ -115,6 +115,27 @@ class MCPServer:
 
                 # 转换为工具（原始版本，用于 build_http_info）
                 original_tools = OpenAPIToToolsConverter(openapi_dict).convert()
+
+                # 应用工具过滤
+                filter_config = self.config.tool_filters.get(service_code)
+                if filter_config and filter_config.tools:
+                    if filter_config.mode == "whitelist":
+                        # 白名单：只保留指定工具
+                        original_tools = [
+                            t for t in original_tools if t.name in filter_config.tools
+                        ]
+                        logger.info(
+                            f"服务 {service_code} 应用白名单过滤，保留 {len(original_tools)} 个工具: {filter_config.tools}"
+                        )
+                    elif filter_config.mode == "blacklist":
+                        # 黑名单：排除指定工具
+                        original_tools = [
+                            t for t in original_tools if t.name not in filter_config.tools
+                        ]
+                        logger.info(
+                            f"服务 {service_code} 应用黑名单过滤，排除 {len(filter_config.tools)} 个工具，剩余 {len(original_tools)} 个"
+                        )
+
                 self.original_tools[service_code] = original_tools
 
                 # 创建带前缀版本（用于返回给客户端）

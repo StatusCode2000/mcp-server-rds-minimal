@@ -1,0 +1,8 @@
+# DAS 服务工具过滤配置
+# 此文件为示例，当前不限制任何工具
+# 如果需要过滤，取消下面的注释
+
+# mode: whitelist
+# tools:
+#   - ShowApiVersion
+#   - ListFullSqlTasks

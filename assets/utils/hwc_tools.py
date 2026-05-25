@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Union, get_args
@@ -13,13 +14,15 @@ from huaweicloudsdkcore.sdk_request import SdkRequest
 from huaweicloudsdkcore.sdk_response import FutureSdkResponse
 from huaweicloudsdkcore.utils import http_utils
 
-from .model import MCPConfig, TransportType
+from .model import MCPConfig, TransportType, ToolFilterConfig
 from .variable import (
     HUAWEI_ACCESS_KEY,
     HUAWEI_SECRET_KEY,
     MCP_SERVER_MODE,
     MCP_SERVER_PORT,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CustomClient(Client):
@@ -270,12 +273,49 @@ def load_config(config_path: Union[str, Path]) -> MCPConfig:
             if single_code:
                 service_codes = [single_code]
 
+        # 解析 tool_filters 配置（优先从独立文件加载）
+        tool_filters = {}
+        config_dir = Path(config_path).parent
+        filters_dir = config_dir / "filters"
+
+        for service_code in service_codes:
+            # 尝试从独立 filter 文件加载
+            filter_file = filters_dir / f"{service_code}.yaml"
+            if filter_file.exists():
+                try:
+                    with open(filter_file, "r", encoding="utf-8") as f:
+                        filter_dict = yaml.safe_load(f) or {}
+                    mode = filter_dict.get("mode", "whitelist")
+                    tools = filter_dict.get("tools", [])
+                    if mode in ("whitelist", "blacklist") and isinstance(tools, list) and tools:
+                        tool_filters[service_code] = ToolFilterConfig(
+                            mode=mode,
+                            tools=tools
+                        )
+                        logger.info(f"从 {filter_file} 加载工具过滤配置: {mode}, {len(tools)} 个工具")
+                except yaml.YAMLError as e:
+                    logger.warning(f"工具过滤文件格式错误 {filter_file}: {e}")
+
+            # 兼容：如果 config.yaml 中也有 tool_filters，合并配置
+            inline_filters = config_dict.get("tool_filters", {})
+            if service_code in inline_filters and service_code not in tool_filters:
+                filter_dict = inline_filters[service_code]
+                if isinstance(filter_dict, dict):
+                    mode = filter_dict.get("mode", "whitelist")
+                    tools = filter_dict.get("tools", [])
+                    if mode in ("whitelist", "blacklist") and isinstance(tools, list) and tools:
+                        tool_filters[service_code] = ToolFilterConfig(
+                            mode=mode,
+                            tools=tools
+                        )
+
         cfg = MCPConfig(
             service_codes=service_codes,
             transport=config_dict.get("transport", ""),
             port=config_dict.get("port", 8888),
             ak=config_dict.get("ak", ""),
             sk=config_dict.get("sk", ""),
+            tool_filters=tool_filters,
         )
 
         env_mapping = [
