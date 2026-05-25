@@ -265,97 +265,97 @@ class MCPServer:
             await self.run_stdio_server()
 
     # async def run_sse_server(self):
-        logger.info("启动SSE服务器")
-        # 配置SSE服务器
-        sse = SseServerTransport("/messages/")
+    #     logger.info("启动SSE服务器")
+    #     # 配置SSE服务器
+    #     sse = SseServerTransport("/messages/")
 
-        async def handle_sse_connection(request):
-            logger.info(f"SSE连接请求来自: {request.client}")
+    #     async def handle_sse_connection(request):
+    #         logger.info(f"SSE连接请求来自: {request.client}")
 
-            # 检查服务器状态
-            if not self.initialized:
-                return JSONResponse({"error": "Server initializing"}, status_code=503)
+    #         # 检查服务器状态
+    #         if not self.initialized:
+    #             return JSONResponse({"error": "Server initializing"}, status_code=503)
 
-            client_id = str(uuid.uuid4())
-            connection_active = True
+    #         client_id = str(uuid.uuid4())
+    #         connection_active = True
 
-            try:
-                # 注册客户端连接（添加到活跃连接列表）
-                await self.register_client(client_id, request)
+    #         try:
+    #             # 注册客户端连接（添加到活跃连接列表）
+    #             await self.register_client(client_id, request)
 
-                # 使用MCP的SSE连接工具建立连接
-                async with sse.connect_sse(
-                    request.scope, request.receive, request._send
-                ) as streams:
-                    input_stream, output_stream = streams
+    #             # 使用MCP的SSE连接工具建立连接
+    #             async with sse.connect_sse(
+    #                 request.scope, request.receive, request._send
+    #             ) as streams:
+    #                 input_stream, output_stream = streams
 
-                    try:
-                        await self.server.run(
-                            input_stream,
-                            output_stream,
-                            self.server.create_initialization_options(),
-                        )
+    #                 try:
+    #                     await self.server.run(
+    #                         input_stream,
+    #                         output_stream,
+    #                         self.server.create_initialization_options(),
+    #                     )
 
-                    except asyncio.CancelledError:
-                        # 任务被取消（正常关闭）
-                        logger.info(f"SSE任务被取消: {client_id}")
-                        connection_active = False
+    #                 except asyncio.CancelledError:
+    #                     # 任务被取消（正常关闭）
+    #                     logger.info(f"SSE任务被取消: {client_id}")
+    #                     connection_active = False
 
-                    except Exception as e:
-                        # 处理其他异常
-                        logger.error(f"SSE通信异常: {e}", exc_info=True)
-                        connection_active = False
+    #                 except Exception as e:
+    #                     # 处理其他异常
+    #                     logger.error(f"SSE通信异常: {e}", exc_info=True)
+    #                     connection_active = False
 
-                        # 尝试向客户端发送错误信息（如果连接仍可用）
-                        if not output_stream.closed:
-                            try:
-                                error_msg = {
-                                    "event": "error",
-                                    "data": {"message": str(e), "code": 500},
-                                }
-                                await output_stream.send(json.dumps(error_msg))
-                            except Exception as send_error:
-                                logger.warning(f"发送错误信息失败: {send_error}")
+    #                     # 尝试向客户端发送错误信息（如果连接仍可用）
+    #                     if not output_stream.closed:
+    #                         try:
+    #                             error_msg = {
+    #                                 "event": "error",
+    #                                 "data": {"message": str(e), "code": 500},
+    #                             }
+    #                             await output_stream.send(json.dumps(error_msg))
+    #                         except Exception as send_error:
+    #                             logger.warning(f"发送错误信息失败: {send_error}")
 
-                    finally:
-                        # 确保资源释放
-                        if connection_active:
-                            connection_active = False
-                            await self.unregister_client(client_id)
-                            logger.info(f"SSE连接已关闭: {client_id}")
+    #                 finally:
+    #                     # 确保资源释放
+    #                     if connection_active:
+    #                         connection_active = False
+    #                         await self.unregister_client(client_id)
+    #                         logger.info(f"SSE连接已关闭: {client_id}")
 
-            except Exception as e:
-                logger.error(f"SSE连接建立失败: {e}", exc_info=True)
+    #         except Exception as e:
+    #             logger.error(f"SSE连接建立失败: {e}", exc_info=True)
 
-                return JSONResponse(
-                    {"error": "Failed to establish SSE connection", "details": str(e)},
-                    status_code=500,
-                )
+    #             return JSONResponse(
+    #                 {"error": "Failed to establish SSE connection", "details": str(e)},
+    #                 status_code=500,
+    #             )
 
-            # 如果没有异常，返回成功响应
-            return JSONResponse(
-                {"status": "SSE connection closed normally"}, status_code=200
-            )
+    #         # 如果没有异常，返回成功响应
+    #         return JSONResponse(
+    #             {"status": "SSE connection closed normally"}, status_code=200
+    #         )
 
-        app = Starlette(
-            routes=[
-                Route("/sse", endpoint=handle_sse_connection),
-                Mount("/messages/", app=sse.handle_post_message),
-            ],
-            debug=True,
-        )
+    #     app = Starlette(
+    #         routes=[
+    #             Route("/sse", endpoint=handle_sse_connection),
+    #             Mount("/messages/", app=sse.handle_post_message),
+    #         ],
+    #         debug=True,
+    #     )
 
-        # 添加CORS中间件
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_headers=["*"],
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        )
-        sse_config = uvicorn.Config(app, host="0.0.0.0", port=self.config.port)
-        sse_server = uvicorn.Server(sse_config)
-        await sse_server.serve()
+    #     # 添加CORS中间件
+    #     app.add_middleware(
+    #         CORSMiddleware,
+    #         allow_origins=["*"],
+    #         allow_headers=["*"],
+    #         allow_credentials=True,
+    #         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    #     )
+    #     sse_config = uvicorn.Config(app, host="0.0.0.0", port=self.config.port)
+    #     sse_server = uvicorn.Server(sse_config)
+    #     await sse_server.serve()
 
     async def run_stdio_server(self):
         logger.info("启动STDIO服务器")
