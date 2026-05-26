@@ -185,7 +185,7 @@ def create_api_client(ak, sk, x_host, region="cn-north-4"):
     )
 
 
-def build_http_info(name, arguments, openapi_spec, mcp_tools):
+def build_http_info(name, arguments, openapi_spec, mcp_tools, trace_id=''):
     # 基于Path name找到调用的Tool
     invoked_tool = next((tool for tool in mcp_tools if tool.name == name), None)
     if not invoked_tool:
@@ -203,6 +203,9 @@ def build_http_info(name, arguments, openapi_spec, mcp_tools):
     form_params = {}
     request_body = {}
     response_headers = None
+
+    if trace_id:
+        header_params["X-Trace-Id"] = trace_id
 
     properties = invoked_tool.inputSchema.get("properties", {})
     for property_name, property_body in properties.items():

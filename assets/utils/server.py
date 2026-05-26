@@ -267,9 +267,10 @@ class MCPServer:
             try:
                 arguments = filter_parameters(arguments)
 
-                # 传入原始工具（不再传 trace_id 到华为云）
+                # 传入原始工具和 trace_id
                 http_info = build_http_info(
-                    original_tool.name, arguments, openapi_dict, self.original_tools[service_code]
+                    original_tool.name, arguments, openapi_dict, self.original_tools[service_code],
+                    trace_id=trace_id
                 )
 
                 response = client.do_http_request(**http_info)
