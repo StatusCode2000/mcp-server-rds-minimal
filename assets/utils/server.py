@@ -1,14 +1,16 @@
 import asyncio
 import contextlib
 import json
+import logging.handlers
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional, AsyncIterator
 import contextvars
 
-# 定义请求上下文变量，存储当前请求的 headers
+# 定义请求上下文变量，存储当前请求的 headers 和 trace_id
 _request_headers: contextvars.ContextVar[dict] = contextvars.ContextVar('request_headers', default={})
+_trace_id: contextvars.ContextVar[str] = contextvars.ContextVar('trace_id', default='')
 import uvicorn
 from huaweicloudsdkcore.exceptions.exceptions import ClientRequestException
 from mcp.server import Server
@@ -20,8 +22,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Mount
 from starlette.types import Receive, Scope, Send
 
 from .hwc_tools import (
@@ -38,18 +39,34 @@ from .variable import TRANSPORT_SSE, TRANSPORT_HTTP
 logger = get_logger(__name__)
 configure_logging("INFO")
 
+# 日志写入文件配置：按天轮转，保留30天
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+log_handler = logging.handlers.TimedRotatingFileHandler(
+    LOG_DIR / "mcp_gateway.log",
+    when='midnight',
+    interval=1,
+    backupCount=30,
+    encoding="utf-8",
+)
+log_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+logging.getLogger().addHandler(log_handler)
+
 class HeadersMiddleware:
     """提取 HTTP headers 并存入上下文变量"""
-    
+
     def __init__(self, app):
         self.app = app
-    
+
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             headers_dict = {}
             for key, value in scope.get('headers', []):
                 headers_dict[key.decode('utf-8').lower()] = value.decode('utf-8')
             _request_headers.set(headers_dict)
+            # 提取或生成 trace_id
+            trace_id = headers_dict.get('x-trace-id') or headers_dict.get('trace-id') or str(uuid.uuid4())
+            _trace_id.set(trace_id)
         await self.app(scope, receive, send)
 
 class MCPServer:
@@ -195,29 +212,28 @@ class MCPServer:
         async def call_tool(
             name: str, arguments: dict
         ) -> list[TextContent | ImageContent | EmbeddedResource]:
+            trace_id = _trace_id.get()
+            logger.info(f"[{trace_id}] call_tool: name={name}")
+
             # 根据带前缀的工具名找到服务
             service_code = self.tool_service_map.get(name)
             if not service_code:
-                raise ToolError({
-                    "code": "UNKNOWN_TOOL",
-                    "message": f"工具 '{name}' 不存在",
-                })
+                logger.warning(f"[{trace_id}] UNKNOWN_TOOL: {name}")
+                raise ToolError(f"[{trace_id}] 工具 '{name}' 不存在")
 
             # 获取原始工具名（去掉前缀）
             original_name = name.replace(f"{service_code}_", "")
 
-            # 从原始工具列表中找到 Tool 对象  # → Tool(name="ListInstances", ...)
+            # 从原始工具列表中找到 Tool 对象
             original_tool = next(
                 (t for t in self.original_tools[service_code] if t.name == original_name),
                 None
             )
             if not original_tool:
-                raise ToolError({
-                    "code": "TOOL_NOT_FOUND",
-                    "message": f"服务 '{service_code}' 中未找到工具 '{original_name}'",
-                })
+                logger.warning(f"[{trace_id}] TOOL_NOT_FOUND: {original_name} in {service_code}")
+                raise ToolError(f"[{trace_id}] 服务 '{service_code}' 中未找到工具 '{original_name}'")
 
-            # 获取对应服务的 OpenAPI  # → rds.json 的完整内容
+            # 获取对应服务的 OpenAPI
             openapi_dict = self.openapi_dicts[service_code]
             x_host = openapi_dict["info"]["x-host"]
             region = arguments.get("region") or "cn-north-4"
@@ -239,24 +255,39 @@ class MCPServer:
                 self.config.sk
             )
 
+            ak_source = "headers" if (headers.get('x-access-key') or headers.get('access-key')) else \
+                        "arguments" if arguments.get('access_key') else "config"
+            logger.info(f"[{trace_id}] AK/SK source: {ak_source}, service={service_code}, region={region}")
+
             if not ak or not sk:
-                error_msg = {
-                    "code": "MISSING_CREDENTIALS",
-                    "message": "请在请求 Headers 中提供 X-Access-Key 和 X-Secret-Key 或配置 HUAWEI_ACCESS_KEY 和 HUAWEI_SECRET_KEY",
-                }
-                raise ToolError(error_msg)
+                logger.warning(f"[{trace_id}] MISSING_CREDENTIALS")
+                raise ToolError(f"[{trace_id}] 请在请求 Headers 中提供 X-Access-Key 和 X-Secret-Key")
 
             client = create_api_client(ak, sk, x_host, region)
             try:
                 arguments = filter_parameters(arguments)
 
-                # 传入原始工具，build_http_info 完全不用改
+                # 传入原始工具（不再传 trace_id 到华为云）
                 http_info = build_http_info(
                     original_tool.name, arguments, openapi_dict, self.original_tools[service_code]
                 )
 
                 response = client.do_http_request(**http_info)
+
+                # 提取华为云响应的 X-TRACE-ID 用于日志关联
+                hw_trace_id = ""
+                if response and hasattr(response, 'headers'):
+                    hw_trace_id = response.headers.get("X-TRACE-ID", "") or response.headers.get("x-trace-id", "")
+                if hw_trace_id:
+                    logger.info(f"[{trace_id}] 华为云 X-TRACE-ID: {hw_trace_id}")
+
                 response_data = response.json() if response and response.content else {}
+                # trace_id 写入响应数据，返回给客户端
+                response_data["trace_id"] = trace_id
+                if hw_trace_id:
+                    response_data["hw_trace_id"] = hw_trace_id
+
+                logger.info(f"[{trace_id}] call_tool completed: name={name}")
                 return [
                     TextContent(
                         type="text",
@@ -264,11 +295,11 @@ class MCPServer:
                     )
                 ]
             except ClientRequestException as ex:
-                logger.error(f"API 请求失败: {ex.error_msg}")
-                raise ValueError(ex.error_msg)
+                logger.error(f"[{trace_id}] API 请求失败: {ex.error_msg}")
+                raise ToolError(f"[{trace_id}] API 请求失败: {ex.error_msg}")
             except Exception as ex:
-                logger.error(f"意外的错误: {str(ex)}")
-                raise
+                logger.error(f"[{trace_id}] 意外的错误: {str(ex)}")
+                raise ToolError(f"[{trace_id}] 内部错误: {str(ex)}")
 
     def _ensure_initialized(self) -> None:
         """确保服务器已初始化"""

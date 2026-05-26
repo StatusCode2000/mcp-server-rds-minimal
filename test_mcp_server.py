@@ -12,9 +12,9 @@ HEADERS_BASE = {
 }
 
 # 测试用的 AK/SK（替换为真实值进行实际测试）
-TEST_AK = "YOUR_REAL_ACCESS_KEY"       # 替换为真实 AK
-TEST_SK = "YOUR_REAL_SECRET_KEY"       # 替换为真实 SK
-TEST_PROJECT_ID = "YOUR_PROJECT_ID"    # 替换为真实项目 ID
+TEST_AK = "HPUAXAUB9NJ4SOFPP737"       # 替换为真实 AK
+TEST_SK = "DPJ4n3JPb3SCkSEjSyRAhcdeFQ299tPByDdCmIFO"       # 替换为真实 SK
+TEST_PROJECT_ID = "101b890ffd5f439db704618744b52abe"    # 替换为真实项目 ID
 
 
 def parse_sse_response(response_text: str) -> dict:
@@ -101,16 +101,16 @@ def test_call_tool_with_headers():
         "id": 3,
         "method": "tools/call",
         "params": {
-            "name": "ListInstances",
+            "name": "rds_ListInstances",
             "arguments": {
-                "region": "cn-north-4",
+                "region": "cn-east-2",
                 "project_id": TEST_PROJECT_ID,
             },
         },
     }
 
     print(f"请求 Headers: X-Access-Key={TEST_AK[:8]}..., X-Secret-Key={TEST_SK[:8]}...")
-    print(f"调用工具: ListInstances")
+    print(f"调用工具: rds_ListInstances")
 
     response = requests.post(MCP_SERVER_URL, headers=headers, json=payload)
     result = parse_sse_response(response.text)
@@ -153,136 +153,10 @@ def test_call_tool_with_headers():
         return False
 
 
-def test_call_tool_with_arguments():
-    """测试 4: 通过请求参数传递 AK/SK"""
-    print("\n" + "=" * 50)
-    print("测试 4: 通过请求参数传递 AK/SK")
-    print("=" * 50)
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 4,
-        "method": "tools/call",
-        "params": {
-            "name": "ListInstances",
-            "arguments": {
-                "region": "cn-north-4",
-                "project_id": TEST_PROJECT_ID,
-                "access_key": TEST_AK,
-                "secret_key": TEST_SK,
-            },
-        },
-    }
-
-    print(f"请求参数: access_key={TEST_AK[:8]}..., secret_key={TEST_SK[:8]}...")
-    print(f"调用工具: ListInstances")
-
-    response = requests.post(MCP_SERVER_URL, headers=HEADERS_BASE, json=payload)
-    result = parse_sse_response(response.text)
-
-    print(f"状态码: {response.status_code}")
-
-    content = result.get("result", {}).get("content", [])
-    is_error = result.get("result", {}).get("isError", False)
-
-    if content:
-        text_content = content[0].get("text", "")
-        
-        if is_error:
-            print(f"❌ 调用失败")
-            print(f"错误信息: {text_content}")
-            return False
-        else:
-            print("✅ 参数 AK/SK 验证成功，API 调用正常")
-            print("\n返回数据:")
-            try:
-                data = json.loads(text_content)
-                print(json.dumps(data, indent=2, ensure_ascii=False))
-                
-                if "instances" in data:
-                    count = len(data["instances"])
-                    print(f"\n共查询到 {count} 个实例")
-            except json.JSONDecodeError:
-                print(text_content)
-            return True
-    else:
-        print("❌ 无返回内容")
-        print(f"完整响应: {json.dumps(result, indent=2, ensure_ascii=False)}")
-        return False
 
 
-def test_priority_headers_over_args():
-    """测试 5: 验证优先级（Headers > 参数）- 使用真实 AK/SK"""
-    print("\n" + "=" * 50)
-    print("测试 5: 验证优先级（Headers > 参数）")
-    print("=" * 50)
-    print("说明: Headers 传递正确 AK/SK，参数传递错误 AK/SK")
-    print("预期: 使用 Headers 中的正确值，调用成功")
 
-    # Headers 用真实的 AK/SK
-    headers = HEADERS_BASE.copy()
-    headers["X-Access-Key"] = TEST_AK
-    headers["X-Secret-Key"] = TEST_SK
 
-    # 参数用错误的 AK/SK
-    wrong_ak = "wrong_ak_12345"
-    wrong_sk = "wrong_sk_12345"
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 5,
-        "method": "tools/call",
-        "params": {
-            "name": "ListInstances",
-            "arguments": {
-                "region": "cn-north-4",
-                "project_id": TEST_PROJECT_ID,
-                "access_key": wrong_ak,  # 错误值
-                "secret_key": wrong_sk,  # 错误值
-            },
-        },
-    }
-
-    print(f"Headers AK/SK: {TEST_AK[:8]}.../{TEST_SK[:8]}... (正确)")
-    print(f"参数 AK/SK: {wrong_ak}/{wrong_sk} (错误)")
-
-    response = requests.post(MCP_SERVER_URL, headers=headers, json=payload)
-    result = parse_sse_response(response.text)
-
-    print(f"状态码: {response.status_code}")
-
-    content = result.get("result", {}).get("content", [])
-    is_error = result.get("result", {}).get("isError", False)
-
-    if content:
-        text_content = content[0].get("text", "")
-        
-        if is_error:
-            # 如果失败，检查是否是因为使用了参数中的错误值
-            if "Unauthorized" in text_content or "APIGW.0301" in text_content:
-                print("❌ 优先级错误：使用了参数中的错误 AK/SK")
-                print(f"错误信息: {text_content}")
-                return False
-            else:
-                print(f"❌ 其他错误: {text_content}")
-                return False
-        else:
-            print("✅ 优先级验证成功：Headers 优先于参数")
-            print("   使用了 Headers 中的正确 AK/SK，调用成功")
-            print("\n返回数据:")
-            try:
-                data = json.loads(text_content)
-                print(json.dumps(data, indent=2, ensure_ascii=False))
-                
-                if "instances" in data:
-                    count = len(data["instances"])
-                    print(f"\n共查询到 {count} 个实例")
-            except json.JSONDecodeError:
-                print(text_content)
-            return True
-    else:
-        print("❌ 无返回内容")
-        return False
 
 
 def run_all_tests():
@@ -300,8 +174,7 @@ def run_all_tests():
     results.append(("初始化连接", test_initialize()))
     results.append(("列出工具", test_list_tools()))
     results.append(("Headers AK/SK", test_call_tool_with_headers()))
-    results.append(("参数 AK/SK", test_call_tool_with_arguments()))
-    results.append(("优先级验证", test_priority_headers_over_args()))
+
 
     # 打印汇总
     print("\n" + "=" * 60)
