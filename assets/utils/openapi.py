@@ -361,8 +361,17 @@ class OpenAPIToToolsConverter:
         if parameter_properties:
             tool_parameters["properties"] = parameter_properties.copy()  # 创建副本
 
+        # 自动注入 region 参数（OpenAPI 规范中没有，但华为云 SDK 需要）
+        # region 决定 API endpoint 的区域，必须由用户指定，不允许走默认值
+        tool_parameters["properties"]["region"] = {
+            "type": "string",
+            "description": "华为云区域，如 cn-north-4、cn-north-7、cn-east-2、cn-south-1 等",
+            "in": "region",  # 特殊标记，build_http_info 会忽略此参数
+        }
+        required_parameters.add("region")
+
         valid_required = [
-            req for req in sorted(required_parameters) if req in parameter_properties
+            req for req in sorted(required_parameters) if req in tool_parameters["properties"]
         ]
         if valid_required:
             tool_parameters["required"] = valid_required

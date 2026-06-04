@@ -236,7 +236,7 @@ class MCPServer:
             # 获取对应服务的 OpenAPI
             openapi_dict = self.openapi_dicts[service_code]
             x_host = openapi_dict["info"]["x-host"]
-            region = arguments.get("region") or "cn-north-4"
+            region = arguments.get("region")
 
             # 从上下文变量获取 headers
             headers = _request_headers.get()

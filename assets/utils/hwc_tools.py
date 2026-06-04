@@ -163,7 +163,7 @@ class CustomClient(Client):
         return response
 
 
-def create_api_client(ak, sk, x_host, region="cn-north-4"):
+def create_api_client(ak, sk, x_host, region):
     endpoint = x_host
 
     if x_host.find("com") != -1:
